@@ -29,37 +29,38 @@ export async function POST() {
     );
   }
 
-  // Fetch user profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("skill_level, dietary_restrictions")
-    .eq("id", user.id)
-    .single();
-
-  // Fetch user pantry
-  const { data: pantry } = await supabase
-    .from("user_pantry")
-    .select("quantity_level, ingredients(name)")
-    .eq("user_id", user.id);
-
-  // Fetch recent cooking sessions
-  const { data: recentSessions } = await supabase
-    .from("cooking_sessions")
-    .select("recipes(name), rating, difficulty_feedback")
-    .eq("user_id", user.id)
-    .order("completed_at", { ascending: false })
-    .limit(10);
-
-  // Fetch available recipes for context
-  const { data: recipes } = await supabase
-    .from("recipes")
-    .select("name, description, difficulty, cook_time_minutes, recipe_ingredients(ingredients(name), is_optional)")
-    .limit(50);
+  // Fetch all context in parallel
+  const [
+    { data: profile },
+    { data: pantry },
+    { data: recentSessions },
+    { data: recipes },
+    achievementContext,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("skill_level, dietary_restrictions")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("user_pantry")
+      .select("quantity_level, ingredients(name)")
+      .eq("user_id", user.id),
+    supabase
+      .from("cooking_sessions")
+      .select("recipes(name), rating, difficulty_feedback")
+      .eq("user_id", user.id)
+      .order("completed_at", { ascending: false })
+      .limit(10),
+    supabase
+      .from("recipes")
+      .select("name, description, difficulty, cook_time_minutes, recipe_ingredients(ingredients(name), is_optional)")
+      .limit(50),
+    getAchievementContext(supabase, user.id),
+  ]);
 
   const pantryList = pantry?.map((p: any) => `${p.ingredients.name} (${p.quantity_level})`) ?? [];
   const recentDishes = recentSessions?.map((s: any) => `${s.recipes?.name} (rated ${s.rating}/5, ${s.difficulty_feedback})`).filter(Boolean) ?? [];
-
-  const achievementContext = await getAchievementContext(supabase, user.id);
 
   const userMessage = `Here is the user's context:
 
@@ -99,7 +100,7 @@ Return ONLY valid JSON in this format:
 
   try {
     const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       system: CHEF_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
