@@ -8,8 +8,7 @@ import { useRouter } from "next/navigation";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home" },
   { href: "/dashboard/kusina", label: "My Kusina" },
-  { href: "/dashboard/suggest", label: "Suggest" },
-  { href: "/dashboard/chef", label: "Chef Chat" },
+  { href: "/dashboard/suggest", label: "Cook" },
 ];
 
 export default function NavBar() {

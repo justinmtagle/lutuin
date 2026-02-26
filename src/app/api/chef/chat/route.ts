@@ -47,15 +47,25 @@ ${dish ? `- Currently discussing: ${dish}` : "- No specific dish selected yet"}
 
 Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses concise (2-4 paragraphs max).`;
 
-  const stream = anthropic.messages.stream({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: CHEF_SYSTEM_PROMPT + "\n\n" + contextMessage,
-    messages: messages.map((m: { role: string; content: string }) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    })),
-  });
+  let stream;
+  try {
+    stream = anthropic.messages.stream({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      system: CHEF_SYSTEM_PROMPT + "\n\n" + contextMessage,
+      messages: messages.map((m: { role: string; content: string }) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    });
+  } catch (error: any) {
+    console.error("Chef AI chat error:", error);
+    const friendlyMessage = getFriendlyErrorMessage(error?.status);
+    return new Response(
+      JSON.stringify({ error: friendlyMessage }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   // Increment usage
   await supabase.from("daily_usage").upsert(
@@ -76,10 +86,12 @@ Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses conci
           encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
         );
       });
-      stream.on("error", (error) => {
+      stream.on("error", (error: any) => {
+        console.error("Chef AI chat stream error:", error);
+        const friendlyMessage = getFriendlyErrorMessage(error?.status);
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ error: String(error) })}\n\n`
+            `data: ${JSON.stringify({ error: friendlyMessage })}\n\n`
           )
         );
         controller.close();
@@ -98,4 +110,18 @@ Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses conci
       Connection: "keep-alive",
     },
   });
+}
+
+function getFriendlyErrorMessage(statusCode?: number): string {
+  switch (statusCode) {
+    case 400:
+    case 402:
+      return "Chef Luto is temporarily unavailable. Our team has been notified — please try again later.";
+    case 429:
+      return "Chef Luto is a bit overwhelmed right now. Please wait a minute and try again.";
+    case 529:
+      return "Chef Luto's kitchen is packed! Please try again in a few minutes.";
+    default:
+      return "Chef Luto is taking a break. Please try again in a moment.";
+  }
 }

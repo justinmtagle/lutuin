@@ -77,6 +77,14 @@ export default function ChatInterface({
           if (data === "[DONE]") break;
           try {
             const parsed = JSON.parse(data);
+            if (parsed.error) {
+              accumulated = parsed.error;
+              setMessages([
+                ...newMessages,
+                { role: "assistant", content: accumulated },
+              ]);
+              break;
+            }
             if (parsed.text) {
               accumulated += parsed.text;
               setMessages([

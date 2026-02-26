@@ -120,11 +120,21 @@ Return ONLY valid JSON in this format:
     } catch {
       return NextResponse.json({ raw: textContent?.text }, { status: 200 });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Chef AI suggestion error:", error);
-    return NextResponse.json(
-      { error: "Failed to generate suggestions. Please try again." },
-      { status: 500 }
-    );
+
+    // Map API errors to user-friendly messages
+    const statusCode = error?.status ?? 500;
+    let userMessage = "Chef Luto is taking a break. Please try again in a moment.";
+
+    if (statusCode === 400 || statusCode === 402) {
+      userMessage = "Chef Luto is temporarily unavailable. Our team has been notified — please try again later.";
+    } else if (statusCode === 429) {
+      userMessage = "Chef Luto is a bit overwhelmed right now. Please wait a minute and try again.";
+    } else if (statusCode === 529) {
+      userMessage = "Chef Luto's kitchen is packed! Please try again in a few minutes.";
+    }
+
+    return NextResponse.json({ error: userMessage }, { status: 503 });
   }
 }
