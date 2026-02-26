@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { showAchievementToasts } from "@/components/ui/achievement-toast-manager";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -97,6 +98,23 @@ export default function ChatInterface({
           }
         }
       }
+    }
+
+    // Check for chat achievements
+    try {
+      const achieveRes = await fetch("/api/achievements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trigger: "chat_message" }),
+      });
+      if (achieveRes.ok) {
+        const achieveData = await achieveRes.json();
+        if (achieveData.newAchievements?.length) {
+          showAchievementToasts(achieveData.newAchievements);
+        }
+      }
+    } catch {
+      // Achievement check failure shouldn't block the flow
     }
 
     setStreaming(false);
