@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import CookingMode from "@/components/cooking/cooking-mode";
+import { showAchievementToasts } from "@/components/ui/achievement-toast-manager";
 
 function CookContent() {
   const searchParams = useSearchParams();
@@ -40,6 +41,25 @@ function CookContent() {
       rating,
       difficulty_feedback: difficulty,
     });
+
+    // Check for new achievements
+    try {
+      const res = await fetch("/api/achievements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trigger: "cooking_session" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.newAchievements?.length) {
+          showAchievementToasts(data.newAchievements);
+          // Delay redirect so user sees the toast
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      }
+    } catch {
+      // Achievement check failure shouldn't block the flow
+    }
 
     router.push("/dashboard");
   }
