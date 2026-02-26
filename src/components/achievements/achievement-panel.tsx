@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AchievementGrid from "./achievement-grid";
 
 type AchievementDisplay = {
@@ -21,6 +21,24 @@ export default function AchievementPanel({
 }) {
   const [open, setOpen] = useState(false);
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
+
+  useEffect(() => {
+    if (!open) return;
+
+    // Lock body scroll
+    document.body.style.overflow = "hidden";
+
+    // Escape key handler
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = "";
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
 
   return (
     <>
@@ -46,7 +64,7 @@ export default function AchievementPanel({
           />
 
           {/* Sheet */}
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] flex flex-col animate-slide-up">
+          <div role="dialog" aria-modal="true" className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] flex flex-col animate-slide-up">
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-2">
               <div className="w-10 h-1 bg-stone-300 rounded-full" />
