@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic, CHEF_SYSTEM_PROMPT } from "@/lib/chef-ai";
 import { NextResponse } from "next/server";
+import { getAchievementContext } from "@/lib/achievement-checker";
 
 export async function POST() {
   const supabase = await createClient();
@@ -58,6 +59,8 @@ export async function POST() {
   const pantryList = pantry?.map((p: any) => `${p.ingredients.name} (${p.quantity_level})`) ?? [];
   const recentDishes = recentSessions?.map((s: any) => `${s.recipes?.name} (rated ${s.rating}/5, ${s.difficulty_feedback})`).filter(Boolean) ?? [];
 
+  const achievementContext = await getAchievementContext(supabase, user.id);
+
   const userMessage = `Here is the user's context:
 
 SKILL LEVEL: ${profile?.skill_level ?? "beginner"}
@@ -74,6 +77,7 @@ ${recipes?.map((r: any) => {
   const ings = r.recipe_ingredients?.map((ri: any) => ri.ingredients.name).join(", ");
   return `- ${r.name} (${r.difficulty}, ${r.cook_time_minutes}min): needs ${ings}`;
 }).join("\n")}
+${achievementContext}
 
 Based on this, suggest 3-5 dishes they can cook right now. Prioritize recipes from our database but you can also suggest dishes not in our DB if they're a good fit.
 

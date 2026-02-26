@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic, CHEF_SYSTEM_PROMPT } from "@/lib/chef-ai";
+import { getAchievementContext } from "@/lib/achievement-checker";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -39,13 +40,16 @@ export async function POST(request: Request) {
     .eq("id", user.id)
     .single();
 
+  const achievementContext = await getAchievementContext(supabase, user.id);
+
   const contextMessage = `User context:
 - Skill level: ${skillLevel ?? "beginner"}
 - Dietary restrictions: ${profile?.dietary_restrictions?.join(", ") || "None"}
 - Current pantry: ${pantry?.join(", ") || "Not provided"}
 ${dish ? `- Currently discussing: ${dish}` : "- No specific dish selected yet"}
+${achievementContext}
 
-Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses concise (2-4 paragraphs max).`;
+Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses concise (2-4 paragraphs max). If the user recently earned an achievement, briefly congratulate them naturally.`;
 
   let stream;
   try {

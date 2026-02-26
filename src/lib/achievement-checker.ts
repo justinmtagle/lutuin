@@ -314,3 +314,56 @@ export async function checkAchievements(
 
   return newlyUnlocked;
 }
+
+// ── getAchievementContext ──────────────────────────────────────────────────────
+
+export async function getAchievementContext(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string> {
+  // Recently unlocked (last 3 days)
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: recent } = await supabase
+    .from("user_achievements")
+    .select("achievement_slug, unlocked_at")
+    .eq("user_id", userId)
+    .not("unlocked_at", "is", null)
+    .gte("unlocked_at", threeDaysAgo);
+
+  // All progress (for approaching milestones)
+  const { data: allProgress } = await supabase
+    .from("user_achievements")
+    .select("achievement_slug, progress")
+    .eq("user_id", userId)
+    .is("unlocked_at", null);
+
+  const lines: string[] = [];
+
+  if (recent?.length) {
+    const names = recent
+      .map((r) => ACHIEVEMENTS.find((a) => a.slug === r.achievement_slug)?.name)
+      .filter(Boolean);
+    lines.push(`RECENTLY EARNED ACHIEVEMENTS: ${names.join(", ")}`);
+  }
+
+  // Find achievements close to completion (80%+)
+  const approaching = allProgress
+    ?.map((p) => {
+      const def = ACHIEVEMENTS.find((a) => a.slug === p.achievement_slug);
+      if (!def?.target || !p.progress?.count) return null;
+      const pct = p.progress.count / def.target;
+      if (pct >= 0.8 && pct < 1) {
+        return `${def.name} (${p.progress.count}/${def.target})`;
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  if (approaching?.length) {
+    lines.push(`CLOSE TO EARNING: ${approaching.join(", ")}`);
+  }
+
+  return lines.length
+    ? `\nACHIEVEMENTS:\n${lines.join("\n")}`
+    : "";
+}
