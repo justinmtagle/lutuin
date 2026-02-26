@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState, useCallback } from "react";
 import IngredientSearch from "@/components/kusina/ingredient-search";
 import PantryGrid from "@/components/kusina/pantry-grid";
+import { showAchievementToasts } from "@/components/ui/achievement-toast-manager";
 
 export default function KusinaPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -43,6 +44,23 @@ export default function KusinaPage() {
       { onConflict: "user_id,ingredient_id" }
     );
     fetchPantry();
+
+    // Check for pantry achievements
+    try {
+      const res = await fetch("/api/achievements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trigger: "pantry_update" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.newAchievements?.length) {
+          showAchievementToasts(data.newAchievements);
+        }
+      }
+    } catch {
+      // Achievement check failure shouldn't block the flow
+    }
   }
 
   return (
