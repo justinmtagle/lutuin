@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { ACHIEVEMENTS } from "@/lib/achievements";
+import AchievementGrid from "@/components/achievements/achievement-grid";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -24,6 +26,32 @@ export default async function DashboardPage() {
     .eq("user_id", user!.id)
     .order("completed_at", { ascending: false })
     .limit(5);
+
+  const { data: userAchievements } = await supabase
+    .from("user_achievements")
+    .select("achievement_slug, unlocked_at, progress")
+    .eq("user_id", user!.id);
+
+  const achievementMap = new Map(
+    userAchievements?.map((ua: any) => [ua.achievement_slug, ua]) ?? []
+  );
+
+  const achievements = ACHIEVEMENTS.map((a) => {
+    const userProgress = achievementMap.get(a.slug);
+    return {
+      slug: a.slug,
+      name: a.hidden && !userProgress?.unlocked_at ? "???" : a.name,
+      description:
+        a.hidden && !userProgress?.unlocked_at
+          ? "Keep cooking to discover this!"
+          : a.description,
+      hidden: a.hidden,
+      target: a.target,
+      unlocked: !!userProgress?.unlocked_at,
+      unlockedAt: userProgress?.unlocked_at ?? null,
+      progress: userProgress?.progress ?? null,
+    };
+  });
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-8">
@@ -58,13 +86,15 @@ export default async function DashboardPage() {
           <div className="text-sm text-stone-500">ingredients in kusina</div>
         </Link>
         <Link
-          href="/dashboard/chef"
+          href="/dashboard/suggest"
           className="p-4 bg-white rounded-xl border border-stone-200 hover:border-amber-300 transition"
         >
           <div className="text-2xl font-bold text-stone-800">Chef Luto</div>
           <div className="text-sm text-stone-500">Ask me anything</div>
         </Link>
       </div>
+
+      <AchievementGrid achievements={achievements} />
 
       {recentSessions && recentSessions.length > 0 && (
         <div>
