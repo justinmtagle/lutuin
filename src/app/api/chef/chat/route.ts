@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic, CHEF_SYSTEM_PROMPT } from "@/lib/chef-ai";
 import { getAchievementContext } from "@/lib/achievement-checker";
+import { awardXP } from "@/lib/gamification-actions";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -80,6 +81,9 @@ Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses conci
     },
     { onConflict: "user_id,date" }
   );
+
+  // Award XP for chatting
+  await awardXP(supabase, user.id, "chat_message");
 
   // Return as SSE stream
   const encoder = new TextEncoder();

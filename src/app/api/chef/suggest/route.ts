@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { anthropic, CHEF_SYSTEM_PROMPT } from "@/lib/chef-ai";
 import { NextResponse } from "next/server";
 import { getAchievementContext } from "@/lib/achievement-checker";
+import { awardXP } from "@/lib/gamification-actions";
 
 export async function POST() {
   const supabase = await createClient();
@@ -115,6 +116,9 @@ Return ONLY valid JSON in this format:
       },
       { onConflict: "user_id,date" }
     );
+
+    // Award XP for getting a suggestion
+    await awardXP(supabase, user.id, "get_suggestion");
 
     const textContent = message.content.find((c) => c.type === "text");
     try {
