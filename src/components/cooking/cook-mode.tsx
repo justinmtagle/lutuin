@@ -167,7 +167,7 @@ export default function CookMode({
                       {step.title}
                     </h3>
                     <p
-                      className={`mt-1 text-stone-600 ml-0 ${
+                      className={`mt-1 text-stone-600 ${
                         isActive ? "text-base" : "text-sm"
                       }`}
                     >
