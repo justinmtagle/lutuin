@@ -30,7 +30,7 @@ export default async function DashboardPage() {
       .eq("user_id", user!.id),
     supabase
       .from("cooking_sessions")
-      .select("recipes(name), rating, completed_at")
+      .select("recipes(name), dish_name, rating, completed_at")
       .eq("user_id", user!.id)
       .order("completed_at", { ascending: false })
       .limit(5),
@@ -185,7 +185,7 @@ export default async function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{"\u{1F35B}"}</span>
                   <span className="text-sm font-medium text-stone-700">
-                    {session.recipes?.name ?? "Unknown dish"}
+                    {session.recipes?.name ?? session.dish_name ?? "Unknown dish"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

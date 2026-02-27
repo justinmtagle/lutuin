@@ -102,7 +102,8 @@ function CookContent() {
         .from("cooking_sessions")
         .insert({
           user_id: user.id,
-          recipe_id: null, // AI-generated recipes don't have a DB recipe_id
+          recipe_id: null,
+          dish_name: recipe.name,
           rating,
           difficulty_feedback: difficulty,
         });
