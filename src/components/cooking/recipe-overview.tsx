@@ -29,10 +29,14 @@ export default function RecipeOverview({
   recipe,
   onStart,
   onBack,
+  isSaved = false,
+  onToggleSave,
 }: {
   recipe: Recipe;
   onStart: () => void;
   onBack: () => void;
+  isSaved?: boolean;
+  onToggleSave?: () => void;
 }) {
   const [checked, setChecked] = useState<Set<number>>(new Set());
 
@@ -58,7 +62,34 @@ export default function RecipeOverview({
 
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-stone-900">{recipe.name}</h1>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-2xl font-bold text-stone-900">{recipe.name}</h1>
+          {onToggleSave && (
+            <button
+              type="button"
+              onClick={onToggleSave}
+              aria-label={isSaved ? "Remove from saved recipes" : "Save recipe"}
+              className="shrink-0 p-2 -mr-2 -mt-1"
+            >
+              <svg
+                className={`w-6 h-6 transition ${
+                  isSaved
+                    ? "fill-amber-500 text-amber-500"
+                    : "fill-none text-stone-400 hover:text-amber-500"
+                }`}
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
         <p className="text-sm text-stone-500 mt-1">{recipe.description}</p>
       </div>
 
