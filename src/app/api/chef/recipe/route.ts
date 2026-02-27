@@ -94,18 +94,24 @@ Rules for the JSON:
       messages: [{ role: "user", content: userMessage }],
     });
 
-    // Award XP for generating a recipe
+    const textContent = message.content.find((c) => c.type === "text");
+    const jsonText = textContent?.text ?? "";
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonMatch?.[0] ?? jsonText);
+    } catch {
+      return NextResponse.json(
+        { error: "Chef Luto's recipe didn't come out right. Please try again." },
+        { status: 502 }
+      );
+    }
+
+    // Award XP only after successful recipe generation
     await awardXP(supabase, user.id, "get_suggestion");
 
-    const textContent = message.content.find((c) => c.type === "text");
-    try {
-      const jsonText = textContent?.text ?? "";
-      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(jsonMatch?.[0] ?? jsonText);
-      return NextResponse.json(parsed);
-    } catch {
-      return NextResponse.json({ raw: textContent?.text }, { status: 200 });
-    }
+    return NextResponse.json(parsed);
   } catch (error: any) {
     console.error("Chef AI recipe error:", error);
 
