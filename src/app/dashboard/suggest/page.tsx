@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import SuggestionCard from "@/components/suggestions/suggestion-card";
-import ChatInterface from "@/components/chef/chat-interface";
 import IngredientPicker from "@/components/suggestions/ingredient-picker";
 
 type PantryItem = {
@@ -16,10 +15,8 @@ export default function SuggestPage() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedDish, setSelectedDish] = useState<string | null>(null);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
-  const [skillLevel, setSkillLevel] = useState("beginner");
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -32,21 +29,13 @@ export default function SuggestPage() {
       } = await supabase.auth.getUser();
       if (!user || ignore) return;
 
-      const [{ data: profile }, { data: pantryData }] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("skill_level")
-          .eq("id", user.id)
-          .single(),
-        supabase
-          .from("user_pantry")
-          .select("ingredients(name, category)")
-          .eq("user_id", user.id),
-      ]);
+      const { data: pantryData } = await supabase
+        .from("user_pantry")
+        .select("ingredients(name, category)")
+        .eq("user_id", user.id);
 
       if (!ignore) {
         setUserId(user.id);
-        setSkillLevel(profile?.skill_level ?? "beginner");
         setPantryItems(
           pantryData?.map((p: any) => ({
             name: p.ingredients.name,
@@ -112,7 +101,6 @@ export default function SuggestPage() {
   async function getSuggestions(ingredients: string[]) {
     setLoading(true);
     setError("");
-    setSelectedDish(null);
     setSelectedIngredients(ingredients);
 
     try {
@@ -147,57 +135,9 @@ export default function SuggestPage() {
     }
   }
 
-  function handleStartCooking() {
-    if (selectedDish) {
-      router.push(
-        `/dashboard/cook?recipe=${encodeURIComponent(selectedDish)}`
-      );
-    }
-  }
-
   function handleBack() {
     setSuggestions([]);
-    setSelectedDish(null);
     setError("");
-  }
-
-  // Step 3: Chef Chat with selected dish
-  if (selectedDish) {
-    return (
-      <div
-        className="max-w-2xl mx-auto flex flex-col"
-        style={{ height: "calc(100vh - 64px)" }}
-      >
-        <div className="p-4 border-b border-stone-200 bg-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <button
-                onClick={() => setSelectedDish(null)}
-                className="text-sm text-stone-400 hover:text-stone-600 mb-1"
-              >
-                &larr; Back to suggestions
-              </button>
-              <h1 className="text-xl font-bold text-stone-800">
-                {selectedDish}
-              </h1>
-            </div>
-            <button
-              onClick={handleStartCooking}
-              className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold"
-            >
-              Let&apos;s Cook!
-            </button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <ChatInterface
-            dish={selectedDish}
-            pantry={pantryItems.map((p) => p.name)}
-            skillLevel={skillLevel}
-          />
-        </div>
-      </div>
-    );
   }
 
   // Step 2: Show suggestions
@@ -225,7 +165,7 @@ export default function SuggestPage() {
             <SuggestionCard
               key={i}
               suggestion={s}
-              onSelect={() => setSelectedDish(s.name)}
+              onSelect={() => router.push(`/dashboard/cook?recipe=${encodeURIComponent(s.name)}`)}
             />
           ))}
         </div>
