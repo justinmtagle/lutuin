@@ -5,13 +5,20 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import SuggestionCard from "@/components/suggestions/suggestion-card";
 import ChatInterface from "@/components/chef/chat-interface";
+import IngredientPicker from "@/components/suggestions/ingredient-picker";
+
+type PantryItem = {
+  name: string;
+  category: string;
+};
 
 export default function SuggestPage() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedDish, setSelectedDish] = useState<string | null>(null);
-  const [pantry, setPantry] = useState<string[]>([]);
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
+  const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [skillLevel, setSkillLevel] = useState("beginner");
   const router = useRouter();
   const supabase = createClient();
@@ -23,33 +30,46 @@ export default function SuggestPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("skill_level")
-        .eq("id", user.id)
-        .single();
-
-      const { data: pantryData } = await supabase
-        .from("user_pantry")
-        .select("ingredients(name)")
-        .eq("user_id", user.id);
+      const [{ data: profile }, { data: pantryData }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("skill_level")
+          .eq("id", user.id)
+          .single(),
+        supabase
+          .from("user_pantry")
+          .select("ingredients(name, category)")
+          .eq("user_id", user.id),
+      ]);
 
       setSkillLevel(profile?.skill_level ?? "beginner");
-      setPantry(pantryData?.map((p: any) => p.ingredients.name) ?? []);
+      setPantryItems(
+        pantryData?.map((p: any) => ({
+          name: p.ingredients.name,
+          category: p.ingredients.category ?? "Other",
+        })) ?? []
+      );
     }
     loadContext();
   }, [supabase]);
 
-  async function getSuggestions() {
+  async function getSuggestions(ingredients: string[]) {
     setLoading(true);
     setError("");
     setSelectedDish(null);
+    setSelectedIngredients(ingredients);
 
     try {
-      const res = await fetch("/api/chef/suggest", { method: "POST" });
+      const res = await fetch("/api/chef/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selectedIngredients: ingredients }),
+      });
 
       if (res.status === 429) {
-        setError("You've used all 5 free suggestions today. Upgrade for unlimited!");
+        setError(
+          "You've used all 5 free suggestions today. Upgrade for unlimited!"
+        );
         setLoading(false);
         return;
       }
@@ -63,7 +83,7 @@ export default function SuggestPage() {
 
       const data = await res.json();
       setSuggestions(data.suggestions ?? []);
-    } catch (e) {
+    } catch {
       setError("Failed to get suggestions. Please try again.");
     }
     setLoading(false);
@@ -71,15 +91,25 @@ export default function SuggestPage() {
 
   function handleStartCooking() {
     if (selectedDish) {
-      router.push(`/dashboard/cook?recipe=${encodeURIComponent(selectedDish)}`);
+      router.push(
+        `/dashboard/cook?recipe=${encodeURIComponent(selectedDish)}`
+      );
     }
   }
 
-  // Step 2: Chef Chat with selected dish
+  function handleBack() {
+    setSuggestions([]);
+    setSelectedDish(null);
+    setError("");
+  }
+
+  // Step 3: Chef Chat with selected dish
   if (selectedDish) {
     return (
-      <div className="max-w-2xl mx-auto flex flex-col" style={{ height: "calc(100vh - 64px)" }}>
-        {/* Header with dish name and actions */}
+      <div
+        className="max-w-2xl mx-auto flex flex-col"
+        style={{ height: "calc(100vh - 64px)" }}
+      >
         <div className="p-4 border-b border-stone-200 bg-white">
           <div className="flex items-center justify-between">
             <div>
@@ -89,7 +119,9 @@ export default function SuggestPage() {
               >
                 &larr; Back to suggestions
               </button>
-              <h1 className="text-xl font-bold text-stone-800">{selectedDish}</h1>
+              <h1 className="text-xl font-bold text-stone-800">
+                {selectedDish}
+              </h1>
             </div>
             <button
               onClick={handleStartCooking}
@@ -99,12 +131,10 @@ export default function SuggestPage() {
             </button>
           </div>
         </div>
-
-        {/* Chat */}
         <div className="flex-1 overflow-hidden">
           <ChatInterface
             dish={selectedDish}
-            pantry={pantry}
+            pantry={selectedIngredients}
             skillLevel={skillLevel}
           />
         </div>
@@ -112,55 +142,67 @@ export default function SuggestPage() {
     );
   }
 
-  // Step 1: Get and display suggestions
-  return (
-    <div className="max-w-2xl mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-bold text-stone-800">What Should I Cook?</h1>
-
-      {suggestions.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <p className="text-stone-500 mb-6">
-            Let Chef Luto look at your kusina and suggest something delicious.
-          </p>
+  // Step 2: Show suggestions
+  if (suggestions.length > 0) {
+    return (
+      <div className="max-w-2xl mx-auto p-4 pb-24 md:pb-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-stone-800">
+            Chef Luto suggests...
+          </h1>
           <button
-            onClick={getSuggestions}
-            className="px-8 py-4 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-lg font-semibold"
+            onClick={handleBack}
+            className="text-sm text-amber-600 hover:text-amber-700 font-medium"
           >
-            Suggest Dishes
+            Pick new ingredients
           </button>
         </div>
-      )}
 
-      {loading && (
-        <div className="text-center py-12">
-          <p className="text-stone-500 animate-pulse">
-            Chef Luto is checking your kusina...
-          </p>
+        {error && (
+          <div className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
+        )}
+
+        <div className="space-y-4">
+          {suggestions.map((s, i) => (
+            <SuggestionCard
+              key={i}
+              suggestion={s}
+              onSelect={() => setSelectedDish(s.name)}
+            />
+          ))}
         </div>
-      )}
+
+        <button
+          onClick={() => getSuggestions(selectedIngredients)}
+          disabled={loading}
+          className="w-full py-3 border border-stone-300 rounded-xl hover:bg-stone-50 text-sm font-medium text-stone-600"
+        >
+          {loading ? "Thinking..." : "Get new suggestions"}
+        </button>
+      </div>
+    );
+  }
+
+  // Step 1: Ingredient picker
+  return (
+    <div className="max-w-2xl mx-auto p-4 pb-24 md:pb-4 space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold text-stone-800">
+          What Should I Cook?
+        </h1>
+        <p className="text-stone-500 text-sm mt-1">
+          Pick ingredients you want to use, and Chef Luto will suggest dishes.
+        </p>
+      </div>
+
+      <IngredientPicker
+        pantryItems={pantryItems}
+        onSubmit={getSuggestions}
+        loading={loading}
+      />
 
       {error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
-      )}
-
-      <div className="space-y-4">
-        {suggestions.map((s, i) => (
-          <SuggestionCard
-            key={i}
-            suggestion={s}
-            onSelect={() => setSelectedDish(s.name)}
-          />
-        ))}
-      </div>
-
-      {suggestions.length > 0 && (
-        <button
-          onClick={getSuggestions}
-          disabled={loading}
-          className="w-full py-3 border border-stone-300 rounded-lg hover:bg-stone-50"
-        >
-          Get new suggestions
-        </button>
       )}
     </div>
   );
