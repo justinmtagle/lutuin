@@ -14,6 +14,7 @@ export default async function DashboardPage() {
     { count: pantryCount },
     { count: dishCount },
     { data: recentSessions },
+    { data: savedRecipes },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -34,6 +35,12 @@ export default async function DashboardPage() {
       .eq("user_id", user!.id)
       .order("completed_at", { ascending: false })
       .limit(5),
+    supabase
+      .from("saved_recipes")
+      .select("id, dish_name, recipe_data")
+      .eq("user_id", user!.id)
+      .order("saved_at", { ascending: false })
+      .limit(4),
   ]);
 
   const xp = profile?.xp ?? 0;
@@ -198,6 +205,39 @@ export default async function DashboardPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Saved Recipes */}
+      {savedRecipes && savedRecipes.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-2">
+            Saved Recipes
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            {savedRecipes.map((saved: any) => {
+              const data = saved.recipe_data as any;
+              return (
+                <Link
+                  key={saved.id}
+                  href={`/dashboard/cook?saved=${saved.id}`}
+                  className="p-3 bg-white rounded-xl border border-stone-100 shadow-sm hover:border-amber-200 transition"
+                >
+                  <p className="text-sm font-medium text-stone-700 truncate">
+                    {saved.dish_name}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 capitalize">
+                      {data?.difficulty ?? "—"}
+                    </span>
+                    <span className="text-[10px] text-stone-400">
+                      {data?.total_time_minutes ?? "?"} min
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
