@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import SuggestionCard from "@/components/suggestions/suggestion-card";
 import ChatInterface from "@/components/chef/chat-interface";
@@ -21,14 +21,15 @@ export default function SuggestPage() {
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [skillLevel, setSkillLevel] = useState("beginner");
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
+    let ignore = false;
     async function loadContext() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || ignore) return;
 
       const [{ data: profile }, { data: pantryData }] = await Promise.all([
         supabase
@@ -42,15 +43,18 @@ export default function SuggestPage() {
           .eq("user_id", user.id),
       ]);
 
-      setSkillLevel(profile?.skill_level ?? "beginner");
-      setPantryItems(
-        pantryData?.map((p: any) => ({
-          name: p.ingredients.name,
-          category: p.ingredients.category ?? "Other",
-        })) ?? []
-      );
+      if (!ignore) {
+        setSkillLevel(profile?.skill_level ?? "beginner");
+        setPantryItems(
+          pantryData?.map((p: any) => ({
+            name: p.ingredients.name,
+            category: p.ingredients.category ?? "Other",
+          })) ?? []
+        );
+      }
     }
     loadContext();
+    return () => { ignore = true; };
   }, [supabase]);
 
   async function getSuggestions(ingredients: string[]) {
@@ -70,14 +74,12 @@ export default function SuggestPage() {
         setError(
           "You've used all 5 free suggestions today. Upgrade for unlimited!"
         );
-        setLoading(false);
         return;
       }
 
       if (!res.ok) {
         const data = await res.json();
         setError(data.error || "Something went wrong. Please try again.");
-        setLoading(false);
         return;
       }
 
@@ -85,8 +87,9 @@ export default function SuggestPage() {
       setSuggestions(data.suggestions ?? []);
     } catch {
       setError("Failed to get suggestions. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   function handleStartCooking() {
@@ -159,7 +162,7 @@ export default function SuggestPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
+          <div role="alert" className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
         )}
 
         <div className="space-y-4">
@@ -202,7 +205,7 @@ export default function SuggestPage() {
       />
 
       {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
+        <div role="alert" className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
       )}
     </div>
   );
