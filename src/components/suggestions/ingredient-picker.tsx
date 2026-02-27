@@ -33,18 +33,22 @@ export default function IngredientPicker({
   }
 
   function toggleAll() {
-    if (allSelected) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(pantryItems.map((p) => p.name)));
-    }
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        pantryItems.forEach((p) => next.delete(p.name));
+      } else {
+        pantryItems.forEach((p) => next.add(p.name));
+      }
+      return next;
+    });
   }
 
   function addCustom(value: string) {
     const trimmed = value.trim();
     if (!trimmed) return;
     if (
-      !customIngredients.includes(trimmed) &&
+      !customIngredients.some((c) => c.toLowerCase() === trimmed.toLowerCase()) &&
       !pantryItems.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())
     ) {
       setCustomIngredients((prev) => [...prev, trimmed]);
