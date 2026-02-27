@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { getAchievementContext } from "@/lib/achievement-checker";
 import { awardXP } from "@/lib/gamification-actions";
 
-export async function POST() {
+export async function POST(request: Request) {
   const supabase = await createClient();
 
   const {
@@ -28,6 +28,15 @@ export async function POST() {
       { error: "Daily suggestion limit reached. Upgrade to premium for unlimited suggestions." },
       { status: 429 }
     );
+  }
+
+  // Parse optional selected ingredients from request body
+  let selectedIngredients: string[] | null = null;
+  try {
+    const body = await request.json();
+    selectedIngredients = body.selectedIngredients ?? null;
+  } catch {
+    // No body or invalid JSON — use full pantry (backwards compatible)
   }
 
   // Fetch all context in parallel
@@ -68,8 +77,14 @@ export async function POST() {
 SKILL LEVEL: ${profile?.skill_level ?? "beginner"}
 DIETARY RESTRICTIONS: ${profile?.dietary_restrictions?.length ? profile.dietary_restrictions.join(", ") : "None"}
 
-PANTRY (what they have):
-${pantryList.join("\n")}
+${selectedIngredients
+  ? `SELECTED INGREDIENTS (user specifically wants to cook with these):
+${selectedIngredients.join("\n")}
+
+FULL PANTRY (other things they also have):
+${pantryList.join("\n")}`
+  : `PANTRY (what they have):
+${pantryList.join("\n")}`}
 
 RECENT DISHES:
 ${recentDishes.length ? recentDishes.join("\n") : "None yet — this might be their first time!"}
@@ -81,7 +96,9 @@ ${recipes?.map((r: any) => {
 }).join("\n")}
 ${achievementContext}
 
-Based on this, suggest 3-5 dishes they can cook right now. Prioritize recipes from our database but you can also suggest dishes not in our DB if they're a good fit.
+${selectedIngredients
+  ? `The user specifically wants to cook with: ${selectedIngredients.join(", ")}. Suggest 3-5 dishes that USE THESE INGREDIENTS as the star. Be creative — suggest dishes from any cuisine, not just Filipino. Include database recipes if they fit, but prioritize creative ideas that match what the user asked for.`
+  : `Based on this, suggest 3-5 dishes they can cook right now. Prioritize recipes from our database but you can also suggest dishes not in our DB if they're a good fit.`}
 
 Return ONLY valid JSON in this format:
 {
