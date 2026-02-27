@@ -34,7 +34,14 @@ export async function POST(request: Request) {
   let selectedIngredients: string[] | null = null;
   try {
     const body = await request.json();
-    selectedIngredients = body.selectedIngredients ?? null;
+    if (Array.isArray(body.selectedIngredients)) {
+      const sanitized = body.selectedIngredients
+        .filter((item: unknown): item is string => typeof item === "string")
+        .slice(0, 50)
+        .map((s: string) => s.slice(0, 100).trim())
+        .filter(Boolean);
+      if (sanitized.length > 0) selectedIngredients = sanitized;
+    }
   } catch {
     // No body or invalid JSON — use full pantry (backwards compatible)
   }
@@ -151,16 +158,16 @@ Return ONLY valid JSON in this format:
 
     // Map API errors to user-friendly messages
     const statusCode = error?.status ?? 500;
-    let userMessage = "Chef Luto is taking a break. Please try again in a moment.";
+    let friendlyMessage = "Chef Luto is taking a break. Please try again in a moment.";
 
     if (statusCode === 400 || statusCode === 402) {
-      userMessage = "Chef Luto is temporarily unavailable. Our team has been notified — please try again later.";
+      friendlyMessage = "Chef Luto is temporarily unavailable. Our team has been notified — please try again later.";
     } else if (statusCode === 429) {
-      userMessage = "Chef Luto is a bit overwhelmed right now. Please wait a minute and try again.";
+      friendlyMessage = "Chef Luto is a bit overwhelmed right now. Please wait a minute and try again.";
     } else if (statusCode === 529) {
-      userMessage = "Chef Luto's kitchen is packed! Please try again in a few minutes.";
+      friendlyMessage = "Chef Luto's kitchen is packed! Please try again in a few minutes.";
     }
 
-    return NextResponse.json({ error: userMessage }, { status: 503 });
+    return NextResponse.json({ error: friendlyMessage }, { status: 503 });
   }
 }
