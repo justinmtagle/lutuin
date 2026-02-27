@@ -28,11 +28,12 @@ function CookContent() {
   const [stage, setStage] = useState<Stage>("loading");
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [rating, setRating] = useState(0);
   const [difficulty, setDifficulty] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch AI-generated recipe on mount
+  // Fetch AI-generated recipe on mount (and on retry)
   useEffect(() => {
     if (!recipeName) return;
 
@@ -56,10 +57,17 @@ function CookContent() {
           );
         }
 
-        const data: Recipe = await res.json();
+        const data = await res.json();
+
+        // Validate response has required recipe fields
+        if (!data.name || !data.ingredients?.length || !data.steps?.length) {
+          throw new Error(
+            "Chef Luto couldn't create a proper recipe. Please try again."
+          );
+        }
 
         if (!cancelled) {
-          setRecipe(data);
+          setRecipe(data as Recipe);
           setStage("overview");
         }
       } catch (err: unknown) {
@@ -78,47 +86,54 @@ function CookContent() {
     return () => {
       cancelled = true;
     };
-  }, [recipeName]);
+  }, [recipeName, retryCount]);
 
   async function handleFeedback() {
     if (submitting) return;
     setSubmitting(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user || !recipe) {
-      setSubmitting(false);
-      return;
-    }
-
-    await supabase.from("cooking_sessions").insert({
-      user_id: user.id,
-      recipe_id: null, // AI-generated recipes don't have a DB recipe_id
-      rating,
-      difficulty_feedback: difficulty,
-    });
-
-    // Check for new achievements
     try {
-      const res = await fetch("/api/achievements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trigger: "cooking_session" }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.newAchievements?.length) {
-          showAchievementToasts(data.newAchievements);
-          // Delay redirect so user sees the toast
-          await new Promise((r) => setTimeout(r, 2000));
-        }
-      }
-    } catch {
-      // Achievement check failure shouldn't block the flow
-    }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || !recipe) return;
 
-    router.push("/dashboard");
+      const { error: insertError } = await supabase
+        .from("cooking_sessions")
+        .insert({
+          user_id: user.id,
+          recipe_id: null, // AI-generated recipes don't have a DB recipe_id
+          rating,
+          difficulty_feedback: difficulty,
+        });
+
+      if (insertError) {
+        console.error("Failed to save cooking session:", insertError);
+      }
+
+      // Check for new achievements
+      try {
+        const res = await fetch("/api/achievements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trigger: "cooking_session" }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.newAchievements?.length) {
+            showAchievementToasts(data.newAchievements);
+            // Delay redirect so user sees the toast
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+        }
+      } catch {
+        // Achievement check failure shouldn't block the flow
+      }
+
+      router.push("/dashboard");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // No recipe selected
@@ -141,36 +156,7 @@ function CookContent() {
           <p className="text-red-600 mb-4">{error}</p>
           <button
             type="button"
-            onClick={() => {
-              setError(null);
-              setStage("loading");
-              // Re-trigger the effect by toggling error state;
-              // since recipeName hasn't changed, we manually re-fetch
-              (async () => {
-                try {
-                  const res = await fetch("/api/chef/recipe", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ dish: recipeName }),
-                  });
-                  if (!res.ok) {
-                    const data = await res.json().catch(() => null);
-                    throw new Error(
-                      data?.error ?? "Something went wrong. Please try again."
-                    );
-                  }
-                  const data: Recipe = await res.json();
-                  setRecipe(data);
-                  setStage("overview");
-                } catch (err: unknown) {
-                  setError(
-                    err instanceof Error
-                      ? err.message
-                      : "Something went wrong. Please try again."
-                  );
-                }
-              })();
-            }}
+            onClick={() => setRetryCount((c) => c + 1)}
             className="px-6 py-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-medium mb-3"
           >
             Try Again
