@@ -22,6 +22,7 @@ type Stage = "loading" | "overview" | "cooking" | "feedback";
 function CookContent() {
   const searchParams = useSearchParams();
   const recipeName = searchParams.get("recipe");
+  const savedId = searchParams.get("saved");
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -32,10 +33,12 @@ function CookContent() {
   const [rating, setRating] = useState(0);
   const [difficulty, setDifficulty] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [savedRecipeId, setSavedRecipeId] = useState<string | null>(savedId);
 
   // Fetch AI-generated recipe on mount (and on retry)
   useEffect(() => {
-    if (!recipeName) return;
+    if (!recipeName || savedId) return;
 
     let cancelled = false;
 
@@ -88,6 +91,83 @@ function CookContent() {
     };
   }, [recipeName, retryCount]);
 
+  // Load saved recipe from DB
+  useEffect(() => {
+    if (!savedId) return;
+
+    let cancelled = false;
+
+    async function loadSaved() {
+      setStage("loading");
+      setError(null);
+
+      try {
+        const { data, error: fetchError } = await supabase
+          .from("saved_recipes")
+          .select("dish_name, recipe_data")
+          .eq("id", savedId)
+          .single();
+
+        if (fetchError || !data) {
+          throw new Error("Could not load saved recipe.");
+        }
+
+        if (!cancelled) {
+          setRecipe(data.recipe_data as Recipe);
+          setIsSaved(true);
+          setSavedRecipeId(savedId);
+          setStage("overview");
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Something went wrong. Please try again."
+          );
+        }
+      }
+    }
+
+    loadSaved();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [savedId, supabase]);
+
+  // Check if AI-generated recipe is already saved
+  useEffect(() => {
+    if (!recipe || savedId) return;
+
+    let cancelled = false;
+
+    async function checkSaved() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+
+      const { data } = await supabase
+        .from("saved_recipes")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("dish_name", recipe!.name)
+        .maybeSingle();
+
+      if (!cancelled) {
+        setIsSaved(!!data);
+        setSavedRecipeId(data?.id ?? null);
+      }
+    }
+
+    checkSaved();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [recipe, savedId, supabase]);
+
   async function handleFeedback() {
     if (submitting) return;
     setSubmitting(true);
@@ -137,8 +217,38 @@ function CookContent() {
     }
   }
 
+  async function handleToggleSave() {
+    if (!recipe) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if (isSaved && savedRecipeId) {
+      await supabase.from("saved_recipes").delete().eq("id", savedRecipeId);
+      setIsSaved(false);
+      setSavedRecipeId(null);
+    } else {
+      const { data } = await supabase
+        .from("saved_recipes")
+        .insert({
+          user_id: user.id,
+          dish_name: recipe.name,
+          recipe_data: recipe,
+        })
+        .select("id")
+        .single();
+
+      if (data) {
+        setIsSaved(true);
+        setSavedRecipeId(data.id);
+      }
+    }
+  }
+
   // No recipe selected
-  if (!recipeName) {
+  if (!recipeName && !savedId) {
     return (
       <div className="p-8 text-center text-stone-500">
         No recipe selected. Go to suggestions first.
@@ -190,6 +300,8 @@ function CookContent() {
         recipe={recipe}
         onStart={() => setStage("cooking")}
         onBack={() => router.back()}
+        isSaved={isSaved}
+        onToggleSave={handleToggleSave}
       />
     );
   }
