@@ -102,6 +102,7 @@ export default function IngredientPicker({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          maxLength={100}
           placeholder="Type an ingredient and press Enter..."
           className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-amber-400 bg-white"
         />
@@ -113,10 +114,12 @@ export default function IngredientPicker({
           {customIngredients.map((name) => (
             <button
               key={name}
+              type="button"
               onClick={() => removeCustom(name)}
+              aria-label={`Remove ${name}`}
               className="px-3 py-1.5 rounded-full text-sm font-medium border-2 border-dashed border-amber-400 bg-amber-50 text-amber-700 flex items-center gap-1"
             >
-              {name} <span className="text-amber-400">&times;</span>
+              {name} <span className="text-amber-400" aria-hidden="true">&times;</span>
             </button>
           ))}
         </div>
@@ -130,6 +133,7 @@ export default function IngredientPicker({
               From your kusina
             </span>
             <button
+              type="button"
               onClick={toggleAll}
               className="text-xs text-amber-600 hover:text-amber-700 font-medium"
             >
@@ -147,7 +151,9 @@ export default function IngredientPicker({
                   {items.map((item) => (
                     <button
                       key={item.name}
+                      type="button"
                       onClick={() => toggleItem(item.name)}
+                      aria-pressed={selected.has(item.name)}
                       className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${
                         selected.has(item.name)
                           ? "bg-amber-500 text-white border-amber-500"
