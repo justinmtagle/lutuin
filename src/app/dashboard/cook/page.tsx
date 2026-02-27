@@ -2,50 +2,99 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState, Suspense } from "react";
-import CookingMode from "@/components/cooking/cooking-mode";
-import ChatInterface from "@/components/chef/chat-interface";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import RecipeOverview from "@/components/cooking/recipe-overview";
+import CookMode from "@/components/cooking/cook-mode";
 import { showAchievementToasts } from "@/components/ui/achievement-toast-manager";
+
+type Recipe = {
+  name: string;
+  description: string;
+  total_time_minutes: number;
+  difficulty: string;
+  servings: number;
+  ingredients: { name: string; amount: string; note?: string | null }[];
+  steps: { number: number; title: string; instruction: string; tip?: string | null }[];
+};
+
+type Stage = "loading" | "overview" | "cooking" | "feedback";
 
 function CookContent() {
   const searchParams = useSearchParams();
   const recipeName = searchParams.get("recipe");
-  const [recipe, setRecipe] = useState<any>(null);
-  const [notInDb, setNotInDb] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+
+  const [stage, setStage] = useState<Stage>("loading");
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
   const [difficulty, setDifficulty] = useState("");
-  const router = useRouter();
-  const supabase = createClient();
+  const [submitting, setSubmitting] = useState(false);
 
+  // Fetch AI-generated recipe on mount
   useEffect(() => {
-    async function loadRecipe() {
-      if (!recipeName) return;
-      const { data } = await supabase
-        .from("recipes")
-        .select("*")
-        .ilike("name", recipeName)
-        .single();
-      if (data) {
-        setRecipe(data);
-      } else {
-        // AI-suggested dish not in our database — still allow cooking
-        setRecipe({ name: recipeName, steps: [] });
-        setNotInDb(true);
+    if (!recipeName) return;
+
+    let cancelled = false;
+
+    async function fetchRecipe() {
+      setStage("loading");
+      setError(null);
+
+      try {
+        const res = await fetch("/api/chef/recipe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dish: recipeName }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(
+            data?.error ?? "Something went wrong. Please try again."
+          );
+        }
+
+        const data: Recipe = await res.json();
+
+        if (!cancelled) {
+          setRecipe(data);
+          setStage("overview");
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Something went wrong. Please try again."
+          );
+        }
       }
     }
-    loadRecipe();
-  }, [recipeName, supabase]);
+
+    fetchRecipe();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [recipeName]);
 
   async function handleFeedback() {
+    if (submitting) return;
+    setSubmitting(true);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user || !recipe) return;
+    if (!user || !recipe) {
+      setSubmitting(false);
+      return;
+    }
 
     await supabase.from("cooking_sessions").insert({
       user_id: user.id,
-      recipe_id: notInDb ? null : recipe.id,
+      recipe_id: null, // AI-generated recipes don't have a DB recipe_id
       rating,
       difficulty_feedback: difficulty,
     });
@@ -72,6 +121,7 @@ function CookContent() {
     router.push("/dashboard");
   }
 
+  // No recipe selected
   if (!recipeName) {
     return (
       <div className="p-8 text-center text-stone-500">
@@ -80,26 +130,108 @@ function CookContent() {
     );
   }
 
-  if (!recipe) {
+  // Stage: Loading
+  if (stage === "loading") {
+    if (error) {
+      return (
+        <div
+          role="alert"
+          className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-center"
+        >
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setStage("loading");
+              // Re-trigger the effect by toggling error state;
+              // since recipeName hasn't changed, we manually re-fetch
+              (async () => {
+                try {
+                  const res = await fetch("/api/chef/recipe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ dish: recipeName }),
+                  });
+                  if (!res.ok) {
+                    const data = await res.json().catch(() => null);
+                    throw new Error(
+                      data?.error ?? "Something went wrong. Please try again."
+                    );
+                  }
+                  const data: Recipe = await res.json();
+                  setRecipe(data);
+                  setStage("overview");
+                } catch (err: unknown) {
+                  setError(
+                    err instanceof Error
+                      ? err.message
+                      : "Something went wrong. Please try again."
+                  );
+                }
+              })();
+            }}
+            className="px-6 py-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-medium mb-3"
+          >
+            Try Again
+          </button>
+          <a
+            href="/dashboard"
+            className="text-sm text-stone-500 hover:text-stone-700 underline"
+          >
+            Go back to suggestions
+          </a>
+        </div>
+      );
+    }
+
     return (
-      <div className="p-8 text-center text-stone-500 animate-pulse">
-        Loading recipe...
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6">
+        <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-stone-700 font-medium">
+          Chef Luto is preparing your recipe...
+        </p>
+        <p className="text-stone-500 text-sm mt-1">{recipeName}</p>
       </div>
     );
   }
 
-  if (showFeedback) {
+  // Stage: Overview
+  if (stage === "overview" && recipe) {
+    return (
+      <RecipeOverview
+        recipe={recipe}
+        onStart={() => setStage("cooking")}
+        onBack={() => router.back()}
+      />
+    );
+  }
+
+  // Stage: Cooking
+  if (stage === "cooking" && recipe) {
+    return (
+      <CookMode
+        recipeName={recipe.name}
+        steps={recipe.steps}
+        onComplete={() => setStage("feedback")}
+      />
+    );
+  }
+
+  // Stage: Feedback
+  if (stage === "feedback" && recipe) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6">
         <h2 className="text-2xl font-bold text-stone-800 mb-2">
           Nice work, Chef!
         </h2>
-        <p className="text-stone-500 mb-8">How was {recipe.name ?? recipeName}?</p>
+        <p className="text-stone-500 mb-8">How was {recipe.name}?</p>
 
         <div className="flex gap-2 mb-6">
           {[1, 2, 3, 4, 5].map((n) => (
             <button
               key={n}
+              type="button"
               onClick={() => setRating(n)}
               className={`w-12 h-12 rounded-full text-lg ${
                 n <= rating
@@ -120,6 +252,7 @@ function CookContent() {
           ].map((opt) => (
             <button
               key={opt.value}
+              type="button"
               onClick={() => setDifficulty(opt.value)}
               className={`px-4 py-2 rounded-full border text-sm ${
                 difficulty === opt.value
@@ -133,51 +266,18 @@ function CookContent() {
         </div>
 
         <button
+          type="button"
           onClick={handleFeedback}
-          disabled={!rating || !difficulty}
+          disabled={!rating || !difficulty || submitting}
           className="px-8 py-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 disabled:opacity-50 font-medium"
         >
-          Submit & Go Home
+          {submitting ? "Submitting..." : "Submit & Go Home"}
         </button>
       </div>
     );
   }
 
-  // Recipe not in DB — Chef Luto guides the cooking via chat
-  if (notInDb || !recipe.steps?.length) {
-    return (
-      <div className="flex flex-col" style={{ height: "calc(100vh - 64px)" }}>
-        <div className="p-4 border-b border-stone-200 bg-white">
-          <div className="flex items-center justify-between max-w-2xl mx-auto">
-            <div>
-              <p className="text-xs text-amber-600 font-medium">Chef Luto's Recipe</p>
-              <h1 className="text-xl font-bold text-stone-800">{recipe.name}</h1>
-            </div>
-            <button
-              onClick={() => setShowFeedback(true)}
-              className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold"
-            >
-              Done Cooking!
-            </button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-hidden max-w-2xl mx-auto w-full">
-          <ChatInterface
-            dish={recipe.name}
-            skillLevel="beginner"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <CookingMode
-      recipeName={recipe.name}
-      steps={recipe.steps}
-      onComplete={() => setShowFeedback(true)}
-    />
-  );
+  return null;
 }
 
 export default function CookPage() {
