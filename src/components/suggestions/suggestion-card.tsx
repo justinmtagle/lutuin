@@ -31,7 +31,7 @@ export default function SuggestionCard({
         <span className="capitalize">{suggestion.difficulty}</span>
         <span>{suggestion.cook_time_minutes} min</span>
       </div>
-      {suggestion.missing_ingredients.length > 0 && (
+      {(suggestion.missing_ingredients?.length ?? 0) > 0 && (
         <p className="text-xs text-stone-400">
           Missing: {suggestion.missing_ingredients.join(", ")}
         </p>

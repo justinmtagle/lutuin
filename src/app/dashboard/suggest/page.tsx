@@ -137,7 +137,7 @@ export default function SuggestPage() {
         <div className="flex-1 overflow-hidden">
           <ChatInterface
             dish={selectedDish}
-            pantry={selectedIngredients}
+            pantry={pantryItems.map((p) => p.name)}
             skillLevel={skillLevel}
           />
         </div>
