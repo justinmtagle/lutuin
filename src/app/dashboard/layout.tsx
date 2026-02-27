@@ -20,7 +20,7 @@ export default async function DashboardLayout({
   // Check onboarding
   const { data: profile } = await supabase
     .from("profiles")
-    .select("onboarding_completed")
+    .select("onboarding_completed, level, streak_count")
     .eq("id", user.id)
     .single();
 
@@ -53,8 +53,8 @@ export default async function DashboardLayout({
   });
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <NavBar />
+    <div className="min-h-screen bg-[var(--background)]">
+      <NavBar level={profile?.level ?? 1} streak={profile?.streak_count ?? 0} />
       <AchievementToastManager />
       {children}
       <AchievementPanel achievements={achievements} />
