@@ -20,6 +20,7 @@ export default function SuggestPage() {
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [skillLevel, setSkillLevel] = useState("beginner");
+  const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -44,6 +45,7 @@ export default function SuggestPage() {
       ]);
 
       if (!ignore) {
+        setUserId(user.id);
         setSkillLevel(profile?.skill_level ?? "beginner");
         setPantryItems(
           pantryData?.map((p: any) => ({
@@ -57,6 +59,56 @@ export default function SuggestPage() {
     return () => { ignore = true; };
   }, [supabase]);
 
+  async function persistCustomIngredients(ingredients: string[]) {
+    if (!userId) return;
+    const customNames = ingredients.filter(
+      (ing) => !pantryItems.some((p) => p.name.toLowerCase() === ing.toLowerCase())
+    );
+    if (customNames.length === 0) return;
+
+    for (const name of customNames) {
+      // Find or create the ingredient
+      let { data: existing } = await supabase
+        .from("ingredients")
+        .select("id")
+        .ilike("name", name)
+        .maybeSingle();
+
+      if (!existing) {
+        const { data: created } = await supabase
+          .from("ingredients")
+          .insert({ name, category: "other" })
+          .select("id")
+          .single();
+        existing = created;
+      }
+
+      if (existing) {
+        await supabase.from("user_pantry").upsert(
+          {
+            user_id: userId,
+            ingredient_id: existing.id,
+            quantity_level: "some",
+          },
+          { onConflict: "user_id,ingredient_id" }
+        );
+      }
+    }
+
+    // Refresh pantry items so new ones appear as chips
+    const { data: pantryData } = await supabase
+      .from("user_pantry")
+      .select("ingredients(name, category)")
+      .eq("user_id", userId);
+
+    setPantryItems(
+      pantryData?.map((p: any) => ({
+        name: p.ingredients.name,
+        category: p.ingredients.category ?? "Other",
+      })) ?? []
+    );
+  }
+
   async function getSuggestions(ingredients: string[]) {
     setLoading(true);
     setError("");
@@ -64,6 +116,9 @@ export default function SuggestPage() {
     setSelectedIngredients(ingredients);
 
     try {
+      // Auto-create custom ingredients and add to pantry
+      await persistCustomIngredients(ingredients);
+
       const res = await fetch("/api/chef/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
