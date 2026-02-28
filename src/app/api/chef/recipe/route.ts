@@ -1,10 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClientFromRequest } from "@/lib/supabase/server";
 import { anthropic, CHEF_SYSTEM_PROMPT } from "@/lib/chef-ai";
 import { NextResponse } from "next/server";
 import { awardXP } from "@/lib/gamification-actions";
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
+  const supabase = await createClientFromRequest(request);
 
   const {
     data: { user },

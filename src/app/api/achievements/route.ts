@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClientFromRequest } from "@/lib/supabase/server";
 import { ACHIEVEMENTS, type TriggerType } from "@/lib/achievements";
 import { checkAchievements } from "@/lib/achievement-checker";
 import { NextResponse } from "next/server";
@@ -12,8 +12,8 @@ const VALID_TRIGGERS: TriggerType[] = [
 
 // ── GET: Return all achievements with user progress ──────────────────────────
 
-export async function GET() {
-  const supabase = await createClient();
+export async function GET(request: Request) {
+  const supabase = await createClientFromRequest(request);
 
   const {
     data: { user },
@@ -63,7 +63,7 @@ export async function GET() {
 // ── POST: Trigger an achievement check ───────────────────────────────────────
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
+  const supabase = await createClientFromRequest(request);
 
   const {
     data: { user },

@@ -25,3 +25,29 @@ export async function createClient() {
     }
   );
 }
+
+/**
+ * Creates a Supabase client from a Request object.
+ * Accepts Bearer tokens (for mobile clients) with a fallback to cookie-based auth.
+ */
+export async function createClientFromRequest(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    const { createClient: createSupabaseClient } = await import(
+      "@supabase/supabase-js"
+    );
+    const supabase = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      }
+    );
+    return supabase;
+  }
+  // Fall back to cookie-based auth
+  return createClient();
+}
