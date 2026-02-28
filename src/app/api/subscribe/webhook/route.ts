@@ -1,7 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
 
 const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY!;
+const PAYMONGO_WEBHOOK_SECRET = process.env.PAYMONGO_WEBHOOK_SECRET!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 function createServiceClient() {
@@ -11,8 +13,39 @@ function createServiceClient() {
   );
 }
 
+function verifyWebhookSignature(rawBody: string, signatureHeader: string): boolean {
+  const parts = signatureHeader.split(",");
+  const timestamp = parts.find((p) => p.startsWith("t="))?.slice(2);
+  const testSig = parts.find((p) => p.startsWith("te="))?.slice(3);
+  const liveSig = parts.find((p) => p.startsWith("li="))?.slice(3);
+
+  if (!timestamp) return false;
+
+  const payload = `${timestamp}.${rawBody}`;
+  const computed = createHmac("sha256", PAYMONGO_WEBHOOK_SECRET)
+    .update(payload)
+    .digest("hex");
+
+  const signature = liveSig || testSig;
+  if (!signature) return false;
+
+  try {
+    return timingSafeEqual(Buffer.from(computed), Buffer.from(signature));
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
-  const body = await request.json();
+  const rawBody = await request.text();
+
+  // Verify webhook signature
+  const signatureHeader = request.headers.get("paymongo-signature");
+  if (!signatureHeader || !verifyWebhookSignature(rawBody, signatureHeader)) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
+  const body = JSON.parse(rawBody);
 
   const eventType = body?.data?.attributes?.type;
   if (eventType !== "checkout_session.payment.paid") {
