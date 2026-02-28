@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { getLevelForXP, getNextLevel } from "@/lib/gamification";
 import { getOrCreateDailyQuest } from "@/lib/gamification-actions";
+import { getUserTier } from "@/lib/subscription";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -42,6 +43,8 @@ export default async function DashboardPage() {
       .order("saved_at", { ascending: false })
       .limit(4),
   ]);
+
+  const tier = await getUserTier(supabase, user!.id);
 
   const xp = profile?.xp ?? 0;
   const currentLevel = getLevelForXP(xp);
@@ -95,6 +98,24 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Premium Upgrade Banner (free users only) */}
+      {tier === "free" && (
+        <Link
+          href="/dashboard/subscription"
+          className="block w-full p-4 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-2xl shadow-md hover:shadow-lg transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-bold text-sm">Unlock Premium</div>
+              <div className="text-xs text-violet-200">
+                Unlimited AI + Advanced Chef Luto — ₱149/mo
+              </div>
+            </div>
+            <div className="text-lg">→</div>
+          </div>
+        </Link>
+      )}
 
       {/* Streak + Daily Quest */}
       <div className="grid grid-cols-2 gap-3">
