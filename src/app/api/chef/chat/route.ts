@@ -2,6 +2,7 @@ import { createClientFromRequest } from "@/lib/supabase/server";
 import { anthropic, CHEF_SYSTEM_PROMPT } from "@/lib/chef-ai";
 import { getAchievementContext } from "@/lib/achievement-checker";
 import { awardXP } from "@/lib/gamification-actions";
+import { getUserTier, getTierLimits } from "@/lib/subscription";
 
 export async function POST(request: Request) {
   const supabase = await createClientFromRequest(request);
@@ -13,7 +14,9 @@ export async function POST(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // Check daily chat limit
+  // Check subscription tier and daily chat limit
+  const tier = await getUserTier(supabase, user.id);
+  const limits = getTierLimits(tier);
   const today = new Date().toISOString().split("T")[0];
   const { data: usage } = await supabase
     .from("daily_usage")
@@ -22,11 +25,12 @@ export async function POST(request: Request) {
     .eq("date", today)
     .single();
 
-  if (usage && usage.chat_message_count >= 10) {
+  if (usage && usage.chat_message_count >= limits.chatMessages) {
     return new Response(
       JSON.stringify({
-        error:
-          "Daily chat limit reached. Upgrade to premium for unlimited chat.",
+        error: tier === "free"
+          ? "Daily chat limit reached. Upgrade to premium for more conversations with Chef Luto!"
+          : "You've reached today's chat limit. It resets at midnight.",
       }),
       { status: 429, headers: { "Content-Type": "application/json" } }
     );
@@ -55,7 +59,7 @@ Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses conci
   let stream;
   try {
     stream = anthropic.messages.stream({
-      model: "claude-sonnet-4-6",
+      model: limits.chatModel,
       max_tokens: 1024,
       system: CHEF_SYSTEM_PROMPT + "\n\n" + contextMessage,
       messages: messages.map((m: { role: string; content: string }) => ({

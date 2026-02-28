@@ -2,6 +2,7 @@ import { createClientFromRequest } from "@/lib/supabase/server";
 import { anthropic, CHEF_SYSTEM_PROMPT } from "@/lib/chef-ai";
 import { NextResponse } from "next/server";
 import { awardXP } from "@/lib/gamification-actions";
+import { getUserTier, getTierLimits } from "@/lib/subscription";
 
 export async function POST(request: Request) {
   const supabase = await createClientFromRequest(request);
@@ -11,6 +12,28 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Check subscription tier and daily recipe limit
+  const tier = await getUserTier(supabase, user.id);
+  const limits = getTierLimits(tier);
+  const today = new Date().toISOString().split("T")[0];
+  const { data: usage } = await supabase
+    .from("daily_usage")
+    .select("recipe_count")
+    .eq("user_id", user.id)
+    .eq("date", today)
+    .single();
+
+  if (usage && usage.recipe_count >= limits.recipes) {
+    return NextResponse.json(
+      {
+        error: tier === "free"
+          ? "Daily recipe limit reached. Upgrade to premium for more recipes!"
+          : "You've reached today's recipe limit. It resets at midnight.",
+      },
+      { status: 429 }
+    );
   }
 
   // Parse and validate dish name from request body
@@ -110,6 +133,16 @@ Rules for the JSON:
 
     // Award XP only after successful recipe generation
     await awardXP(supabase, user.id, "get_suggestion");
+
+    // Increment recipe usage
+    await supabase.from("daily_usage").upsert(
+      {
+        user_id: user.id,
+        date: today,
+        recipe_count: (usage?.recipe_count ?? 0) + 1,
+      },
+      { onConflict: "user_id,date" }
+    );
 
     return NextResponse.json(parsed);
   } catch (error: any) {

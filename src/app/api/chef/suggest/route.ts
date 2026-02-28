@@ -3,6 +3,7 @@ import { anthropic, CHEF_SYSTEM_PROMPT } from "@/lib/chef-ai";
 import { NextResponse } from "next/server";
 import { getAchievementContext } from "@/lib/achievement-checker";
 import { awardXP } from "@/lib/gamification-actions";
+import { getUserTier, getTierLimits } from "@/lib/subscription";
 
 export async function POST(request: Request) {
   const supabase = await createClientFromRequest(request);
@@ -14,7 +15,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Check daily usage limit
+  // Check subscription tier and daily usage limit
+  const tier = await getUserTier(supabase, user.id);
+  const limits = getTierLimits(tier);
   const today = new Date().toISOString().split("T")[0];
   const { data: usage } = await supabase
     .from("daily_usage")
@@ -23,9 +26,13 @@ export async function POST(request: Request) {
     .eq("date", today)
     .single();
 
-  if (usage && usage.suggestion_count >= 5) {
+  if (usage && usage.suggestion_count >= limits.suggestions) {
     return NextResponse.json(
-      { error: "Daily suggestion limit reached. Upgrade to premium for unlimited suggestions." },
+      {
+        error: tier === "free"
+          ? "Daily suggestion limit reached. Upgrade to premium for more suggestions!"
+          : "You've reached today's suggestion limit. It resets at midnight.",
+      },
       { status: 429 }
     );
   }
