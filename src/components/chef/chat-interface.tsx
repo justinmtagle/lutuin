@@ -88,10 +88,16 @@ export default function ChatInterface() {
     });
 
     if (!response.ok) {
-      const err = await response.json();
+      let errorMessage = "Something went wrong.";
+      try {
+        const err = await response.json();
+        errorMessage = err.error || errorMessage;
+      } catch {
+        // Non-JSON error response
+      }
       setMessages([
         ...newMessages,
-        { role: "assistant", content: err.error || "Something went wrong." },
+        { role: "assistant", content: errorMessage },
       ]);
       setStreaming(false);
       return;
