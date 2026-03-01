@@ -166,17 +166,41 @@ export default function ChatInterface() {
     setStreaming(false);
   }
 
+  const quickPrompts = [
+    "I want to make chicken adobo",
+    "What can I cook with what I have?",
+    "Suggest a quick dinner",
+  ];
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full max-w-2xl mx-auto w-full">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <div className="text-center text-stone-400 mt-12">
-            <p className="text-lg font-medium">Chef Luto is ready!</p>
-            <p className="text-sm mt-1">
-              Tell me what you want to cook, or ask anything about Filipino
-              cuisine
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-4xl shadow-lg mb-5">
+              {"\u{1F468}\u{200D}\u{1F373}"}
+            </div>
+            <h2 className="text-2xl font-bold text-stone-800 mb-2">
+              Chef Luto
+            </h2>
+            <p className="text-stone-500 mb-8 max-w-sm">
+              Your Filipino cooking companion. Tell me what you want to cook, ask for a recipe, or get help with what&apos;s in your kusina.
             </p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {quickPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => {
+                    setInput(prompt);
+                  }}
+                  className="px-4 py-2.5 bg-white border border-amber-200 rounded-full text-sm text-stone-600 hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((msg, i) => (
@@ -185,35 +209,40 @@ export default function ChatInterface() {
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             {msg.role === "user" ? (
-              <div className="max-w-[80%] px-4 py-3 rounded-2xl bg-amber-500 text-white">
+              <div className="max-w-[80%] px-4 py-3 rounded-2xl bg-amber-500 text-white shadow-sm">
                 <p className="whitespace-pre-wrap">{msg.content}</p>
               </div>
             ) : (
-              <div className="max-w-[85%]">
-                {streaming && !msg.content ? (
-                  <div className="px-4 py-3 rounded-2xl bg-stone-100">
-                    <div className="flex gap-1">
-                      <span className="w-2 h-2 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-2 h-2 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-2 h-2 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              <div className="max-w-[85%] flex gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-sm flex-shrink-0 mt-1 shadow-sm">
+                  {"\u{1F468}\u{200D}\u{1F373}"}
+                </div>
+                <div className="flex-1">
+                  {streaming && !msg.content ? (
+                    <div className="px-4 py-3 rounded-2xl bg-white border border-stone-200 shadow-sm">
+                      <div className="flex gap-1.5">
+                        <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {parseMessageContent(msg.content).map((part, j) =>
-                      part.type === "recipe" ? (
-                        <ChatRecipeCard key={j} recipe={part.recipe} />
-                      ) : (
-                        <div
-                          key={j}
-                          className="px-4 py-3 rounded-2xl bg-stone-100 text-stone-800"
-                        >
-                          <p className="whitespace-pre-wrap">{part.text}</p>
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
+                  ) : (
+                    <div className="space-y-2">
+                      {parseMessageContent(msg.content).map((part, j) =>
+                        part.type === "recipe" ? (
+                          <ChatRecipeCard key={j} recipe={part.recipe} />
+                        ) : (
+                          <div
+                            key={j}
+                            className="px-4 py-3 rounded-2xl bg-white border border-stone-200 text-stone-800 shadow-sm"
+                          >
+                            <p className="whitespace-pre-wrap leading-relaxed">{part.text}</p>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -222,7 +251,7 @@ export default function ChatInterface() {
       </div>
 
       {/* Input */}
-      <form onSubmit={sendMessage} className="p-4 border-t border-stone-200">
+      <form onSubmit={sendMessage} className="p-4 bg-white/80 backdrop-blur-sm border-t border-stone-200">
         <div className="flex gap-2">
           <input
             type="text"
@@ -230,14 +259,14 @@ export default function ChatInterface() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="I want to make chicken tinola..."
             disabled={streaming}
-            className="flex-1 px-4 py-3 rounded-full border border-stone-300 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
+            className="flex-1 px-5 py-3.5 rounded-full bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-400 disabled:opacity-50 text-stone-800 placeholder:text-stone-400 shadow-sm"
           />
           <button
             type="submit"
             disabled={streaming || !input.trim()}
-            className="px-6 py-3 bg-amber-600 text-white rounded-full hover:bg-amber-700 disabled:opacity-50 font-medium"
+            className="px-5 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-full hover:from-amber-600 hover:to-amber-700 disabled:opacity-40 font-semibold shadow-sm transition-all"
           >
-            Send
+            {streaming ? "..." : "Send"}
           </button>
         </div>
       </form>
