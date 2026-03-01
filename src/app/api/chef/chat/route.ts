@@ -36,7 +36,22 @@ export async function POST(request: Request) {
     );
   }
 
-  const { messages } = await request.json();
+  let messages: Array<{ role: string; content: string }>;
+  try {
+    const body = await request.json();
+    if (!Array.isArray(body.messages) || body.messages.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Messages are required." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    messages = body.messages;
+  } catch {
+    return new Response(
+      JSON.stringify({ error: "Invalid request body." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   // Fetch user context in parallel (server-side, richer data)
   const [{ data: profile }, { data: pantryData }, { data: recentSessions }, achievementContext] =
@@ -63,11 +78,14 @@ export async function POST(request: Request) {
   const dietaryRestrictions = profile?.dietary_restrictions?.join(", ") || "None";
 
   const pantryList = pantryData
-    ?.map((p: any) => `${p.ingredients.name} (${p.quantity_level})`)
+    ?.map((p: any) => {
+      const name = p.ingredients?.name;
+      return name ? `${name} (${p.quantity_level})` : null;
+    })
     .filter(Boolean) ?? [];
 
   const recentCooking = recentSessions
-    ?.map((s: any) => `${s.dish_name ?? "Unknown"} (rated ${s.rating ?? "?"}\/5)`)
+    ?.map((s: any) => `${s.dish_name ?? "Unknown"} (rated ${s.rating ?? "?"}/5)`)
     .join(", ") || "None yet";
 
   const contextMessage = `User context:
