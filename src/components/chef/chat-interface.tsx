@@ -175,7 +175,7 @@ export default function ChatInterface() {
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto w-full">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className={`flex-1 p-4 space-y-4 ${messages.length > 0 ? "overflow-y-auto" : "overflow-hidden"}`}>
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-4xl shadow-lg mb-5">
