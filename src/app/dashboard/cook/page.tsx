@@ -23,6 +23,7 @@ function CookContent() {
   const searchParams = useSearchParams();
   const recipeName = searchParams.get("recipe");
   const savedId = searchParams.get("saved");
+  const fromChat = searchParams.get("from") === "chat";
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -35,6 +36,31 @@ function CookContent() {
   const [submitting, setSubmitting] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [savedRecipeId, setSavedRecipeId] = useState<string | null>(savedId);
+
+  // Load recipe from chat sessionStorage
+  useEffect(() => {
+    if (!fromChat) return;
+
+    try {
+      const stored = sessionStorage.getItem("chat-recipe");
+      if (!stored) {
+        setError("Recipe data not found. Please go back to chat.");
+        return;
+      }
+
+      const data = JSON.parse(stored) as Recipe;
+      if (!data.name || !data.ingredients?.length || !data.steps?.length) {
+        setError("Invalid recipe data. Please go back to chat.");
+        return;
+      }
+
+      setRecipe(data);
+      setStage("overview");
+      sessionStorage.removeItem("chat-recipe");
+    } catch {
+      setError("Could not load recipe. Please go back to chat.");
+    }
+  }, [fromChat]);
 
   // Fetch AI-generated recipe on mount (and on retry)
   useEffect(() => {
@@ -248,7 +274,7 @@ function CookContent() {
   }
 
   // No recipe selected
-  if (!recipeName && !savedId) {
+  if (!recipeName && !savedId && !fromChat) {
     return (
       <div className="p-8 text-center text-stone-500">
         No recipe selected. Go to suggestions first.
