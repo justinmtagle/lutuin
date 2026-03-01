@@ -36,31 +36,54 @@ export async function POST(request: Request) {
     );
   }
 
-  const { messages, dish, pantry, skillLevel } = await request.json();
+  const { messages } = await request.json();
 
-  // Fetch profile for dietary restrictions
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("dietary_restrictions")
-    .eq("id", user.id)
-    .single();
+  // Fetch user context in parallel (server-side, richer data)
+  const [{ data: profile }, { data: pantryData }, { data: recentSessions }, achievementContext] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("skill_level, dietary_restrictions")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("user_pantry")
+        .select("quantity_level, ingredients(name)")
+        .eq("user_id", user.id),
+      supabase
+        .from("cooking_sessions")
+        .select("dish_name, rating, completed_at")
+        .eq("user_id", user.id)
+        .order("completed_at", { ascending: false })
+        .limit(10),
+      getAchievementContext(supabase, user.id),
+    ]);
 
-  const achievementContext = await getAchievementContext(supabase, user.id);
+  const skillLevel = profile?.skill_level ?? "beginner";
+  const dietaryRestrictions = profile?.dietary_restrictions?.join(", ") || "None";
+
+  const pantryList = pantryData
+    ?.map((p: any) => `${p.ingredients.name} (${p.quantity_level})`)
+    .filter(Boolean) ?? [];
+
+  const recentCooking = recentSessions
+    ?.map((s: any) => `${s.dish_name ?? "Unknown"} (rated ${s.rating ?? "?"}\/5)`)
+    .join(", ") || "None yet";
 
   const contextMessage = `User context:
-- Skill level: ${skillLevel ?? "beginner"}
-- Dietary restrictions: ${profile?.dietary_restrictions?.join(", ") || "None"}
-- Current pantry: ${pantry?.join(", ") || "Not provided"}
-${dish ? `- Currently discussing: ${dish}` : "- No specific dish selected yet"}
+- Skill level: ${skillLevel}
+- Dietary restrictions: ${dietaryRestrictions}
+- Pantry ingredients (with quantity levels): ${pantryList.length ? pantryList.join(", ") : "Empty pantry"}
+- Recent dishes cooked: ${recentCooking}
 ${achievementContext}
 
-Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses concise (2-4 paragraphs max). If the user recently earned an achievement, briefly congratulate them naturally.`;
+Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses concise (2-4 paragraphs max unless outputting a recipe). If the user recently earned an achievement, briefly congratulate them naturally.`;
 
   let stream;
   try {
     stream = anthropic.messages.stream({
       model: limits.chatModel,
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: CHEF_SYSTEM_PROMPT + "\n\n" + contextMessage,
       messages: messages.map((m: { role: string; content: string }) => ({
         role: m.role as "user" | "assistant",
