@@ -6,16 +6,7 @@ import { useEffect, useState, useMemo, Suspense } from "react";
 import RecipeOverview from "@/components/cooking/recipe-overview";
 import CookMode from "@/components/cooking/cook-mode";
 import { showAchievementToasts } from "@/components/ui/achievement-toast-manager";
-
-type Recipe = {
-  name: string;
-  description: string;
-  total_time_minutes: number;
-  difficulty: string;
-  servings: number;
-  ingredients: { name: string; amount: string; note?: string | null }[];
-  steps: { number: number; title: string; instruction: string; tip?: string | null }[];
-};
+import type { Recipe } from "@/types/recipe";
 
 type Stage = "loading" | "overview" | "cooking" | "feedback";
 

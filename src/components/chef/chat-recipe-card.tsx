@@ -1,26 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { ChatRecipe } from "@/types/recipe";
 
-export type ChatRecipe = {
-  name: string;
-  description: string;
-  total_time_minutes: number;
-  difficulty: string;
-  servings: number;
-  ingredients: {
-    name: string;
-    amount: string;
-    note?: string | null;
-    in_pantry?: boolean;
-  }[];
-  steps: {
-    number: number;
-    title: string;
-    instruction: string;
-    tip?: string | null;
-  }[];
-};
+export type { ChatRecipe };
 
 export default function ChatRecipeCard({ recipe }: { recipe: ChatRecipe }) {
   const router = useRouter();
