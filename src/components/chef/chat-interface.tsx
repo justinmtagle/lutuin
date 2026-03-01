@@ -5,15 +5,7 @@ import { showAchievementToasts } from "@/components/ui/achievement-toast-manager
 
 type Message = { role: "user" | "assistant"; content: string };
 
-export default function ChatInterface({
-  dish,
-  pantry,
-  skillLevel,
-}: {
-  dish?: string;
-  pantry?: string[];
-  skillLevel?: string;
-}) {
+export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -41,9 +33,6 @@ export default function ChatInterface({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages: newMessages,
-        dish,
-        pantry,
-        skillLevel,
       }),
     });
 
@@ -128,9 +117,7 @@ export default function ChatInterface({
           <div className="text-center text-stone-400 mt-12">
             <p className="text-lg font-medium">Chef Luto is ready!</p>
             <p className="text-sm mt-1">
-              {dish
-                ? `Ask me anything about cooking ${dish}`
-                : "Tell me what you're in the mood for"}
+              Tell me what you&apos;re in the mood for
             </p>
           </div>
         )}
