@@ -64,7 +64,7 @@ function CookContent() {
 
   // Fetch AI-generated recipe on mount (and on retry)
   useEffect(() => {
-    if (!recipeName || savedId) return;
+    if (!recipeName || savedId || fromChat) return;
 
     let cancelled = false;
 
@@ -291,18 +291,20 @@ function CookContent() {
           className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-center"
         >
           <p className="text-red-600 mb-4">{error}</p>
-          <button
-            type="button"
-            onClick={() => setRetryCount((c) => c + 1)}
-            className="px-6 py-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-medium mb-3"
-          >
-            Try Again
-          </button>
+          {!fromChat && (
+            <button
+              type="button"
+              onClick={() => setRetryCount((c) => c + 1)}
+              className="px-6 py-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-medium mb-3"
+            >
+              Try Again
+            </button>
+          )}
           <a
-            href="/dashboard"
+            href={fromChat ? "/dashboard/chef" : "/dashboard"}
             className="text-sm text-stone-500 hover:text-stone-700 underline"
           >
-            Go back to suggestions
+            {fromChat ? "Go back to chat" : "Go back to suggestions"}
           </a>
         </div>
       );
