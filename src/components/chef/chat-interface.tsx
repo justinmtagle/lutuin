@@ -190,20 +190,30 @@ export default function ChatInterface() {
               </div>
             ) : (
               <div className="max-w-[85%]">
-                <div className="space-y-2">
-                  {parseMessageContent(msg.content).map((part, j) =>
-                    part.type === "recipe" ? (
-                      <ChatRecipeCard key={j} recipe={part.recipe} />
-                    ) : (
-                      <div
-                        key={j}
-                        className="px-4 py-3 rounded-2xl bg-stone-100 text-stone-800"
-                      >
-                        <p className="whitespace-pre-wrap">{part.text}</p>
-                      </div>
-                    )
-                  )}
-                </div>
+                {streaming && !msg.content ? (
+                  <div className="px-4 py-3 rounded-2xl bg-stone-100">
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-2 h-2 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-2 h-2 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {parseMessageContent(msg.content).map((part, j) =>
+                      part.type === "recipe" ? (
+                        <ChatRecipeCard key={j} recipe={part.recipe} />
+                      ) : (
+                        <div
+                          key={j}
+                          className="px-4 py-3 rounded-2xl bg-stone-100 text-stone-800"
+                        >
+                          <p className="whitespace-pre-wrap">{part.text}</p>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
