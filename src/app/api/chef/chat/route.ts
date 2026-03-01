@@ -103,7 +103,7 @@ Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses conci
       model: limits.chatModel,
       max_tokens: 2048,
       system: CHEF_SYSTEM_PROMPT + "\n\n" + contextMessage,
-      messages: messages.map((m: { role: string; content: string }) => ({
+      messages: messages.slice(-20).map((m: { role: string; content: string }) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),
