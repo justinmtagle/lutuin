@@ -45,7 +45,7 @@ export default function AchievementPanel({
       {/* Floating Action Button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-amber-500 hover:bg-amber-600 text-2xl rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 w-14 h-14 bg-amber-500 hover:bg-amber-600 text-2xl rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
         aria-label="View achievements"
       >
         {"\u{1F3C6}"}
