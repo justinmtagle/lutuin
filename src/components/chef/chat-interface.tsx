@@ -63,6 +63,14 @@ export default function ChatInterface() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const prefill = sessionStorage.getItem("chef-prefill");
+    if (prefill) {
+      sessionStorage.removeItem("chef-prefill");
+      setInput(prefill);
+    }
+  }, []);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
