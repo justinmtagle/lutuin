@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home", icon: "\u{1F3E0}" },
-  { href: "/dashboard/kusina", label: "Kusina", icon: "\u{1F9C5}" },
+  { href: "/dashboard/kusina", label: "Kitchen", icon: "\u{1F9C5}" },
   { href: "/dashboard/suggest", label: "Cook", icon: "\u{1F373}" },
   { href: "/dashboard/chef", label: "Chef", icon: "\u{1F468}\u{200D}\u{1F373}" },
 ];
