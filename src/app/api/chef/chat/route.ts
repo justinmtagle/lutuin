@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   }
 
   // Fetch user context in parallel (server-side, richer data)
-  const [{ data: profile }, { data: pantryData }, { data: recentSessions }, achievementContext] =
+  const [{ data: profile }, { data: pantryData }, { data: recentSessions }, achievementContext, { data: savedRecipes }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -72,6 +72,12 @@ export async function POST(request: Request) {
         .order("completed_at", { ascending: false })
         .limit(10),
       getAchievementContext(supabase, user.id),
+      supabase
+        .from("saved_recipes")
+        .select("dish_name, recipe_data")
+        .eq("user_id", user.id)
+        .order("saved_at", { ascending: false })
+        .limit(20),
     ]);
 
   const skillLevel = profile?.skill_level ?? "beginner";
@@ -88,11 +94,19 @@ export async function POST(request: Request) {
     ?.map((s: any) => `${s.dish_name ?? "Unknown"} (rated ${s.rating ?? "?"}/5)`)
     .join(", ") || "None yet";
 
+  const savedRecipesList = savedRecipes
+    ?.map((r: any) => {
+      const desc = r.recipe_data?.description ?? "";
+      return `${r.dish_name}${desc ? ` (${desc})` : ""}`;
+    })
+    .join(", ") || "None";
+
   const contextMessage = `User context:
 - Skill level: ${skillLevel}
 - Dietary restrictions: ${dietaryRestrictions}
 - Pantry ingredients (with quantity levels): ${pantryList.length ? pantryList.join(", ") : "Empty pantry"}
 - Recent dishes cooked: ${recentCooking}
+- Saved recipes in vault: ${savedRecipesList}
 ${achievementContext}
 
 Respond as Chef Luto. Be conversational, warm, and helpful. Keep responses concise (2-4 paragraphs max unless outputting a recipe). If the user recently earned an achievement, briefly congratulate them naturally.`;
